@@ -72,11 +72,16 @@ func (c *CSVLogger) Write(s Sample) error {
 
 // Close flushes and releases the file.
 func (c *CSVLogger) Close() error {
+	var flushErr error
 	if c.bw != nil {
-		c.bw.Flush()
+		flushErr = c.bw.Flush()
 	}
 	if c.file != nil {
-		return c.file.Close()
+		closeErr := c.file.Close()
+		if flushErr != nil {
+			return flushErr
+		}
+		return closeErr
 	}
-	return nil
+	return flushErr
 }
