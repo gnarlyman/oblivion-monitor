@@ -42,30 +42,12 @@ func (s *Sampler) Run(ctx context.Context) {
 	cCPU, _ := q.AddEnglishCounter(procPath("% Processor Time"))
 	cFreeRAM, _ := q.AddEnglishCounter(`\Memory\Available MBytes`)
 
-	// Bind GPU memory counters via wildcard expansion. There may be multiple
-	// instances per PID (one per physical heap); we sum them.
+	// GPU memory counters are bound lazily each tick via bindGPUCounters.
+	// Wildcard expansion returns 0 paths if Oblivion hasn't yet allocated GPU
+	// memory; retrying each tick ensures we pick them up once they appear.
 	pidPrefix := fmt.Sprintf("pid_%d_", s.PID)
-	dedicatedPaths := s.expandGPUPaths(pidPrefix, "Dedicated Usage")
-	if len(dedicatedPaths) == 0 && s.Config.FallbackToLocalUsage {
-		dedicatedPaths = s.expandGPUPaths(pidPrefix, "Local Usage")
-	}
-	sharedPaths := s.expandGPUPaths(pidPrefix, "Shared Usage")
-	if len(sharedPaths) == 0 && s.Config.FallbackToLocalUsage {
-		sharedPaths = s.expandGPUPaths(pidPrefix, "Non Local Usage")
-	}
-
-	dedicatedCounters := make([]*PdhCounter, 0, len(dedicatedPaths))
-	for _, p := range dedicatedPaths {
-		if c, err := q.AddCounter(p); err == nil {
-			dedicatedCounters = append(dedicatedCounters, c)
-		}
-	}
-	sharedCounters := make([]*PdhCounter, 0, len(sharedPaths))
-	for _, p := range sharedPaths {
-		if c, err := q.AddCounter(p); err == nil {
-			sharedCounters = append(sharedCounters, c)
-		}
-	}
+	var dedicatedCounters []*PdhCounter
+	var sharedCounters []*PdhCounter
 
 	// First Collect() establishes baseline; rate counters return zero on the
 	// first read.
@@ -82,6 +64,10 @@ func (s *Sampler) Run(ctx context.Context) {
 			return
 		case <-t.C:
 		}
+
+		// Lazily bind GPU counters each tick until at least one is found.
+		dedicatedCounters = s.bindGPUCounters(q, pidPrefix, "Dedicated Usage", "Local Usage", dedicatedCounters)
+		sharedCounters = s.bindGPUCounters(q, pidPrefix, "Shared Usage", "Non Local Usage", sharedCounters)
 
 		if err := q.Collect(); err != nil {
 			continue
@@ -128,6 +114,26 @@ func (s *Sampler) Run(ctx context.Context) {
 			return
 		}
 	}
+}
+
+// bindGPUCounters expands wildcards for GPU memory paths and adds matching
+// counters to the query. Safe to call repeatedly — it only adds counters when
+// the current slice is empty. Returns the (possibly newly-populated) slices.
+func (s *Sampler) bindGPUCounters(q *PdhQuery, pidPrefix, primaryMetric, fallbackMetric string, current []*PdhCounter) []*PdhCounter {
+	if len(current) > 0 {
+		return current // already bound
+	}
+	paths := s.expandGPUPaths(pidPrefix, primaryMetric)
+	if len(paths) == 0 && s.Config.FallbackToLocalUsage {
+		paths = s.expandGPUPaths(pidPrefix, fallbackMetric)
+	}
+	out := make([]*PdhCounter, 0, len(paths))
+	for _, p := range paths {
+		if c, err := q.AddCounter(p); err == nil {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 func (s *Sampler) expandGPUPaths(pidPrefix, metric string) []string {
