@@ -1,4 +1,4 @@
-module github.com/gnarlyman/oblivion-reborn/tools/oblivion-monitor
+module github.com/gnarlyman/oblivion-monitor
 
 go 1.22
 
