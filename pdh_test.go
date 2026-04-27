@@ -51,3 +51,19 @@ func TestPDHReadSystemAvailableMBytes(t *testing.T) {
 	}
 	t.Logf("Available MBytes = %.0f", val)
 }
+
+func TestPDHExpandWildcardForGPUMemory(t *testing.T) {
+	if testing.Short() {
+		t.Skip("PDH integration test")
+	}
+	// Find any GPU process memory instance — there's always at least one
+	// (dwm.exe, explorer.exe, or any GPU-using process).
+	paths, err := PdhExpandWildCardPath(`\GPU Process Memory(*)\Dedicated Usage`)
+	if err != nil {
+		t.Fatalf("PdhExpandWildCardPath: %v", err)
+	}
+	if len(paths) == 0 {
+		t.Fatalf("expected >=1 expanded path, got 0")
+	}
+	t.Logf("expanded %d paths; first = %q", len(paths), paths[0])
+}

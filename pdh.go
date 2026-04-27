@@ -135,3 +135,56 @@ func (c *PdhCounter) Value() (float64, error) {
 	}
 	return fmtVal.DoubleValue, nil
 }
+
+// PdhExpandWildCardPath expands a PDH path containing wildcards into the list
+// of currently-matching concrete paths. Returns localized counter paths
+// suitable for AddCounter (NOT AddEnglishCounter).
+func PdhExpandWildCardPath(wildcard string) ([]string, error) {
+	wildW, err := syscall.UTF16PtrFromString(wildcard)
+	if err != nil {
+		return nil, err
+	}
+
+	// First call with bufLen=0 to learn required buffer size.
+	var bufLen uint32
+	r, _, _ := procPdhExpandWildCardPath.Call(
+		0,
+		uintptr(unsafe.Pointer(wildW)),
+		0,
+		uintptr(unsafe.Pointer(&bufLen)),
+		0,
+	)
+	if r != 0 && r != pdhMoreData {
+		return nil, fmt.Errorf("PdhExpandWildCardPath sizing: 0x%x", r)
+	}
+	if bufLen == 0 {
+		return nil, nil
+	}
+
+	buf := make([]uint16, bufLen)
+	r, _, _ = procPdhExpandWildCardPath.Call(
+		0,
+		uintptr(unsafe.Pointer(wildW)),
+		uintptr(unsafe.Pointer(&buf[0])),
+		uintptr(unsafe.Pointer(&bufLen)),
+		0,
+	)
+	if r != 0 {
+		return nil, fmt.Errorf("PdhExpandWildCardPath: 0x%x", r)
+	}
+
+	// Result is a multi-string: sequences of UTF-16 strings each terminated
+	// by NUL, with a final empty string (double-NUL) marking the end.
+	var paths []string
+	start := 0
+	for i := 0; i < int(bufLen); i++ {
+		if buf[i] == 0 {
+			if i == start {
+				break // double-NUL terminator
+			}
+			paths = append(paths, syscall.UTF16ToString(buf[start:i]))
+			start = i + 1
+		}
+	}
+	return paths, nil
+}
