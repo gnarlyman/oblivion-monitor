@@ -28,13 +28,7 @@ func main() {
 	cfg, err := LoadConfig(configPath)
 	if err != nil {
 		log.Printf("config load failed, using defaults: %v", err)
-		cfg = Config{
-			PollingIntervalMS:    1000,
-			ScanIntervalMS:       2000,
-			LogDir:               "logs",
-			ProcessName:          "Oblivion.exe",
-			FallbackToLocalUsage: true,
-		}
+		cfg = defaultConfig()
 	}
 	logDir := cfg.LogDir
 	if !filepath.IsAbs(logDir) {
@@ -73,7 +67,9 @@ func main() {
 				samplerCancel = nil
 			}
 			if csvLog != nil {
-				csvLog.Close()
+				if err := csvLog.Close(); err != nil {
+					log.Printf("CSV close: %v", err)
+				}
 				csvLog = nil
 			}
 			ui.OnPIDLost()

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"runtime"
 	"strings"
 	"time"
@@ -22,6 +23,7 @@ type Sampler struct {
 func (s *Sampler) Run(ctx context.Context) {
 	q, err := PdhOpenQuery()
 	if err != nil {
+		log.Printf("Sampler: PdhOpenQuery failed: %v", err)
 		return
 	}
 	defer q.Close()

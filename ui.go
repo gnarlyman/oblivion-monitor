@@ -123,6 +123,13 @@ func NewUI(cfg Config, configPath string) (*UI, error) {
 		tray.SetIcon(icon)
 	}
 	tray.SetToolTip("oblivion-monitor")
+	showAction := walk.NewAction()
+	showAction.SetText("&Show")
+	showAction.Triggered().Attach(func() {
+		u.mw.SetVisible(true)
+		win.SetForegroundWindow(u.mw.Handle())
+	})
+	tray.ContextMenu().Actions().Add(showAction)
 	exitAction := walk.NewAction()
 	exitAction.SetText("E&xit")
 	exitAction.Triggered().Attach(func() { walk.App().Exit(0) })
