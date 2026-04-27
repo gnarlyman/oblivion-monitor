@@ -1,0 +1,8 @@
+# Build outputs
+*.exe
+rsrc.syso
+
+# Runtime artifacts
+logs/
+oblivion-monitor.log
+config.json
