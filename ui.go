@@ -217,3 +217,12 @@ func (u *UI) OnSample(s Sample) {
 func (u *UI) Run() {
 	u.mw.Run()
 }
+
+// DisposeTray releases the tray icon. Call after Run() returns to ensure the
+// icon is removed promptly rather than waiting for OS cleanup.
+func (u *UI) DisposeTray() {
+	if u.tray != nil {
+		u.tray.Dispose()
+		u.tray = nil
+	}
+}
