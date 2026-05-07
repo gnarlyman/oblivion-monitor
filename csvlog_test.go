@@ -24,6 +24,8 @@ func TestCSVLoggerHeaderAndRow(t *testing.T) {
 		PageFileMB:      3072.0,
 		CPUPct:          37.5,
 		SystemFreeRAMMB: 16384.0,
+		PrivateCommitMB: 1234.0,
+		LargestFreeMB:   456.5,
 	}
 	if err := lg.Write(sample); err != nil {
 		t.Fatalf("Write: %v", err)
@@ -42,11 +44,11 @@ func TestCSVLoggerHeaderAndRow(t *testing.T) {
 	}
 	got := string(data)
 
-	wantHeader := "timestamp_iso,uptime_sec,vram_dedicated_mb,vram_shared_mb,ram_private_mb,page_file_mb,cpu_pct,system_free_ram_mb\n"
+	wantHeader := "timestamp_iso,uptime_sec,vram_dedicated_mb,vram_shared_mb,ram_private_mb,page_file_mb,cpu_pct,system_free_ram_mb,private_commit_mb,largest_free_mb\n"
 	if !strings.HasPrefix(got, wantHeader) {
 		t.Errorf("header mismatch:\n got: %q\nwant: %q", got, wantHeader)
 	}
-	wantRow := "2026-04-26T12:00:00Z,42,1024.50,128.00,2048.00,3072.00,37.50,16384.00\n"
+	wantRow := "2026-04-26T12:00:00Z,42,1024.50,128.00,2048.00,3072.00,37.50,16384.00,1234.00,456.50\n"
 	if !strings.HasSuffix(got, wantRow) {
 		t.Errorf("row mismatch:\n got: %q\nwant: %q", got, wantRow)
 	}

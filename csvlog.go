@@ -9,6 +9,12 @@ import (
 )
 
 // Sample holds one polling tick of metrics.
+//
+// PrivateCommitMB and LargestFreeMB come from a VirtualQueryEx sweep of the
+// target process. PrivateCommitMB is the leak signal (sustained growth =
+// leak). LargestFreeMB is the fragmentation signal — when it shrinks below
+// ~100MB on a 32-bit process, the next big allocation will likely CTD even
+// if total Free looks abundant.
 type Sample struct {
 	Timestamp       time.Time
 	UptimeSec       int
@@ -18,6 +24,8 @@ type Sample struct {
 	PageFileMB      float64
 	CPUPct          float64
 	SystemFreeRAMMB float64
+	PrivateCommitMB float64
+	LargestFreeMB   float64
 }
 
 // CSVLogger writes one CSV file per session. Header written on construction;
@@ -27,7 +35,7 @@ type CSVLogger struct {
 	bw   *bufio.Writer
 }
 
-const csvHeader = "timestamp_iso,uptime_sec,vram_dedicated_mb,vram_shared_mb,ram_private_mb,page_file_mb,cpu_pct,system_free_ram_mb\n"
+const csvHeader = "timestamp_iso,uptime_sec,vram_dedicated_mb,vram_shared_mb,ram_private_mb,page_file_mb,cpu_pct,system_free_ram_mb,private_commit_mb,largest_free_mb\n"
 
 // NewCSVLogger creates dir if needed and opens a new timestamped CSV.
 func NewCSVLogger(dir string) (*CSVLogger, error) {
@@ -54,7 +62,7 @@ func NewCSVLogger(dir string) (*CSVLogger, error) {
 
 // Write appends one sample row and flushes.
 func (c *CSVLogger) Write(s Sample) error {
-	line := fmt.Sprintf("%s,%d,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",
+	line := fmt.Sprintf("%s,%d,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",
 		s.Timestamp.UTC().Format(time.RFC3339),
 		s.UptimeSec,
 		s.VRAMDedicatedMB,
@@ -63,6 +71,8 @@ func (c *CSVLogger) Write(s Sample) error {
 		s.PageFileMB,
 		s.CPUPct,
 		s.SystemFreeRAMMB,
+		s.PrivateCommitMB,
+		s.LargestFreeMB,
 	)
 	if _, err := c.bw.WriteString(line); err != nil {
 		return err

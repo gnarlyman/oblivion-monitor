@@ -50,6 +50,13 @@ func TestSamplerEndToEndAgainstSelf(t *testing.T) {
 	if got.SystemFreeRAMMB <= 0 {
 		t.Errorf("SystemFreeRAMMB = %v, expected > 0", got.SystemFreeRAMMB)
 	}
-	t.Logf("self RAM private = %.0f MB, free system RAM = %.0f MB, CPU = %.1f%%, NumCPU=%d",
-		got.RAMPrivateMB, got.SystemFreeRAMMB, got.CPUPct, runtime.NumCPU())
+	if got.PrivateCommitMB <= 0 {
+		t.Errorf("PrivateCommitMB = %v, expected > 0 (VM walk should populate it)", got.PrivateCommitMB)
+	}
+	if got.LargestFreeMB <= 0 {
+		t.Errorf("LargestFreeMB = %v, expected > 0", got.LargestFreeMB)
+	}
+	t.Logf("self: RAM private=%.0f MB, commit=%.0f MB, LFB=%.0f MB, free RAM=%.0f MB, CPU=%.1f%%, NumCPU=%d",
+		got.RAMPrivateMB, got.PrivateCommitMB, got.LargestFreeMB,
+		got.SystemFreeRAMMB, got.CPUPct, runtime.NumCPU())
 }

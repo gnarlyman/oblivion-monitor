@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"golang.org/x/sys/windows"
 )
 
 // Sampler drives the PDH counters for one Oblivion PID and emits Sample values
@@ -55,6 +57,20 @@ func (s *Sampler) Run(ctx context.Context) {
 	// first read.
 	q.Collect()
 
+	// Open a process handle for VirtualQueryEx sweeps (private commit,
+	// largest free block). If this fails (denied / process gone), we leave
+	// the handle as 0 and the sweep is skipped each tick — PDH metrics
+	// continue to flow.
+	vmHandle, vmErr := OpenProcessForVMWalk(s.PID)
+	if vmErr != nil {
+		log.Printf("Sampler: VM walk disabled: %v", vmErr)
+	}
+	defer func() {
+		if vmHandle != 0 {
+			windows.CloseHandle(vmHandle)
+		}
+	}()
+
 	start := time.Now()
 	t := time.NewTicker(time.Duration(s.Config.PollingIntervalMS) * time.Millisecond)
 	defer t.Stop()
@@ -98,6 +114,13 @@ func (s *Sampler) Run(ctx context.Context) {
 			return 0
 		}
 
+		var vm VMStats
+		if vmHandle != 0 {
+			if walked, err := WalkProcessVM(vmHandle); err == nil {
+				vm = walked
+			}
+		}
+
 		bytesToMB := 1.0 / (1024 * 1024)
 		sample := Sample{
 			Timestamp:       time.Now(),
@@ -108,6 +131,8 @@ func (s *Sampler) Run(ctx context.Context) {
 			PageFileMB:      readOne(cPageFile, nil) * bytesToMB,
 			CPUPct:          readOne(cCPU, nil) / numCPU,
 			SystemFreeRAMMB: readOne(cFreeRAM, nil),
+			PrivateCommitMB: vm.PrivateCommitMB,
+			LargestFreeMB:   vm.LargestFreeMB,
 		}
 
 		select {

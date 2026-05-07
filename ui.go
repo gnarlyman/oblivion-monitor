@@ -11,7 +11,7 @@ import (
 
 const (
 	windowWidth    = 320
-	windowHeight   = 220
+	windowHeight   = 270
 	sparklineWidth = 13
 	historyDepth   = 60 // 60 samples = 1 minute at 1s polling
 )
@@ -20,6 +20,7 @@ const (
 type metricRow struct {
 	label   string
 	unit    string
+	hint    string // optional trailing annotation, e.g. "↑ better"
 	history []float64
 	current float64
 	missing int // consecutive zero/NaN samples
@@ -40,7 +41,7 @@ type UI struct {
 }
 
 // metricKeys defines display order.
-var metricKeys = []string{"vram_ded", "vram_shr", "ram", "page", "cpu"}
+var metricKeys = []string{"vram_ded", "vram_shr", "ram", "commit", "lfb", "page", "cpu"}
 
 // NewUI builds the window. configPath is where to persist position.
 func NewUI(cfg Config, configPath string) (*UI, error) {
@@ -53,6 +54,8 @@ func NewUI(cfg Config, configPath string) (*UI, error) {
 	u.state["vram_ded"] = &metricRow{label: "VRAM (ded)", unit: "MB"}
 	u.state["vram_shr"] = &metricRow{label: "VRAM (shr)", unit: "MB"}
 	u.state["ram"] = &metricRow{label: "RAM", unit: "MB"}
+	u.state["commit"] = &metricRow{label: "Commit", unit: "MB"}
+	u.state["lfb"] = &metricRow{label: "LFB", unit: "MB", hint: "↑ better"}
 	u.state["page"] = &metricRow{label: "Page file", unit: "MB"}
 	u.state["cpu"] = &metricRow{label: "CPU", unit: "%"}
 
@@ -188,6 +191,8 @@ func (u *UI) OnSample(s Sample) {
 		"vram_ded": s.VRAMDedicatedMB,
 		"vram_shr": s.VRAMSharedMB,
 		"ram":      s.RAMPrivateMB,
+		"commit":   s.PrivateCommitMB,
+		"lfb":      s.LargestFreeMB,
 		"page":     s.PageFileMB,
 		"cpu":      s.CPUPct,
 	}
@@ -215,6 +220,9 @@ func (u *UI) OnSample(s Sample) {
 			line := fmt.Sprintf("%-10s %6s %-3s   %s",
 				r.label, displayVal, r.unit,
 				Sparkline(r.history, sparklineWidth))
+			if r.hint != "" {
+				line += "  " + r.hint
+			}
 			u.rows[k].SetText(line)
 		}
 	})
