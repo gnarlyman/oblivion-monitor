@@ -20,7 +20,6 @@ const (
 type metricRow struct {
 	label   string
 	unit    string
-	hint    string // optional trailing annotation, e.g. "↑ better"
 	history []float64
 	current float64
 	missing int // consecutive zero/NaN samples
@@ -55,7 +54,7 @@ func NewUI(cfg Config, configPath string) (*UI, error) {
 	u.state["vram_shr"] = &metricRow{label: "VRAM (shr)", unit: "MB"}
 	u.state["ram"] = &metricRow{label: "RAM", unit: "MB"}
 	u.state["commit"] = &metricRow{label: "Commit", unit: "MB"}
-	u.state["lfb"] = &metricRow{label: "LFB", unit: "MB", hint: "↑ better"}
+	u.state["lfb"] = &metricRow{label: "LFB (↑)", unit: "MB"}
 	u.state["page"] = &metricRow{label: "Page file", unit: "MB"}
 	u.state["cpu"] = &metricRow{label: "CPU", unit: "%"}
 
@@ -220,9 +219,6 @@ func (u *UI) OnSample(s Sample) {
 			line := fmt.Sprintf("%-10s %6s %-3s   %s",
 				r.label, displayVal, r.unit,
 				Sparkline(r.history, sparklineWidth))
-			if r.hint != "" {
-				line += "  " + r.hint
-			}
 			u.rows[k].SetText(line)
 		}
 	})
